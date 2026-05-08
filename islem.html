@@ -1,0 +1,450 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VOXEL_MASTER_OS_v22</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/tween.js/18.6.4/tween.umd.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    
+    <style>
+        /* --- CSS MİMARİSİ (Aesthetic & Professional) --- */
+        :root {
+            --neon: #00ff88; --electric: #00d1ff; --lava: #ff4500;
+            --bg-deep: #020406; --panel-bg: rgba(10, 15, 25, 0.85);
+            --border: #1d2129; --text: #e6edf3;
+            --font-main: 'Segoe UI', system-ui, -apple-system, sans-serif;
+            --font-mono: 'Fira Code', 'Cascadia Code', monospace;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; outline: none; }
+        body {
+            background-color: var(--bg-deep); color: var(--text);
+            font-family: var(--font-main); height: 100vh; overflow: hidden; display: flex;
+        }
+
+        /* --- SOL KONTROL TERMİNALİ --- */
+        .sidebar {
+            width: 380px; background: #010409; border-right: 1px solid var(--border);
+            display: flex; flex-direction: column; z-index: 100;
+            box-shadow: 10px 0 30px rgba(0,0,0,0.8);
+        }
+
+        .brand {
+            padding: 25px; border-bottom: 1px solid var(--border);
+            background: linear-gradient(to bottom, #0d1117, #010409);
+        }
+        .brand h1 { font-family: var(--font-mono); font-size: 1.1rem; color: var(--neon); letter-spacing: 2px; }
+        .brand span { font-size: 0.6rem; color: var(--electric); font-weight: 900; }
+
+        .scroller { flex: 1; overflow-y: auto; padding: 20px; }
+        .scroller::-webkit-scrollbar { width: 5px; }
+        .scroller::-webkit-scrollbar-thumb { background: var(--border); }
+
+        .section-label { 
+            font-size: 0.65rem; color: #8b949e; margin: 15px 0 8px 0; 
+            text-transform: uppercase; letter-spacing: 1px; font-weight: bold;
+        }
+
+        textarea {
+            width: 100%; height: 120px; background: #000; border: 1px solid var(--border);
+            color: var(--neon); font-family: var(--font-mono); padding: 12px;
+            border-radius: 6px; font-size: 0.8rem; resize: none; border-left: 3px solid var(--neon);
+        }
+
+        /* Fonksiyon Listesi UI */
+        .func-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+        .btn-func {
+            background: #0d1117; border: 1px solid var(--border); color: #c9d1d9;
+            padding: 10px; font-size: 0.65rem; border-radius: 4px; cursor: pointer;
+            font-family: var(--font-mono); text-align: left; transition: 0.2s;
+        }
+        .btn-func:hover { border-color: var(--electric); background: #161b22; color: #fff; }
+
+        .btn-primary {
+            width: 100%; padding: 16px; background: var(--neon); color: #000;
+            border: none; border-radius: 6px; font-weight: 900; cursor: pointer;
+            margin: 20px 0 10px 0; font-family: var(--font-mono); text-transform: uppercase;
+        }
+
+        /* --- VİZÜALİZASYON MERKEZİ --- */
+        .viewport { flex: 1; position: relative; overflow: hidden; }
+        #canvas-3d { width: 100%; height: 100%; cursor: grab; }
+        #canvas-3d:active { cursor: grabbing; }
+
+        /* YENİ: 2D Analiz Modu Paneli */
+        #view-2d {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(2, 4, 6, 0.95); display: none; padding: 100px 60px;
+            z-index: 40; pointer-events: all;
+        }
+
+        /* Yüzer Analiz Kartları */
+        .overlay {
+            position: absolute; background: var(--panel-bg); backdrop-filter: blur(15px);
+            border: 1px solid var(--border); border-radius: 12px; padding: 20px;
+            pointer-events: none; transition: 0.3s; z-index: 60;
+        }
+        .stats-card { top: 20px; right: 20px; width: 280px; box-shadow: 0 10px 40px rgba(0,0,0,0.5); }
+        .math-card { bottom: 20px; right: 20px; width: 320px; font-family: var(--font-mono); }
+
+        .metric { display: flex; justify-content: space-between; margin-bottom: 8px; font-size: 0.75rem; }
+        .metric b { color: var(--neon); }
+        
+        .floating-btns { position: absolute; bottom: 20px; left: 20px; display: flex; gap: 10px; pointer-events: all; z-index: 100; }
+        .f-btn {
+            background: rgba(0, 209, 255, 0.1); border: 1px solid var(--electric);
+            color: var(--electric); padding: 10px 20px; border-radius: 30px;
+            font-size: 0.7rem; cursor: pointer; font-family: var(--font-mono); font-weight: bold;
+        }
+        .f-btn:hover { background: var(--electric); color: #000; }
+        .f-btn.active-mode { background: var(--lava); border-color: var(--lava); color: #fff; }
+
+        /* 2D Mini Map */
+        .minimap {
+            position: absolute; top: 20px; left: 20px; width: 180px; height: 120px;
+            background: rgba(0,0,0,0.5); border: 1px solid var(--border); border-radius: 8px;
+            z-index: 60;
+        }
+
+    </style>
+</head>
+<body>
+
+    <aside class="sidebar">
+        <div class="brand">
+            <h1>VOXEL_MASTER</h1>
+            <span>ULTIMATE MATHEMATICAL ENGINE v22.0</span>
+        </div>
+
+        <div class="scroller">
+            <div class="section-label">Veri Girişi / Ham Sinyal</div>
+            <textarea id="rawInput">10, 45, 80, 120, 60, 30, 15, 55, 95, 40, 20, 75, 110, 25, 50</textarea>
+
+            <button class="btn-primary" onclick="Core.execute()">Motoru Çalıştır</button>
+
+            <div class="section-label">Wikipedia Matematiksel Fonksiyonlar</div>
+            <div class="func-grid">
+                <button class="btn-func" onclick="MathLib.gen('sine')">Sinüs Dalgası</button>
+                <button class="btn-func" onclick="MathLib.gen('cos')">Kosinüs</button>
+                <button class="btn-func" onclick="MathLib.gen('gaussian')">Normal Dağılım</button>
+                <button class="btn-func" onclick="MathLib.gen('log')">Logaritmik</button>
+                <button class="btn-func" onclick="MathLib.gen('sigmoid')">Sigmoid Lojistik</button>
+                <button class="btn-func" onclick="MathLib.gen('perlin')">Gürültü (Noise)</button>
+                <button class="btn-func" onclick="MathLib.gen('fibonacci')">Fibonacci Seq.</button>
+                <button class="btn-func" onclick="MathLib.gen('fractal')">Fraktal Kaos</button>
+                <button class="btn-func" onclick="MathLib.gen('tangent')">Tanjant</button>
+                <button class="btn-func" onclick="MathLib.gen('exp')">Üstel Artış</button>
+                <button class="btn-func" onclick="MathLib.gen('poisson')">Poisson Dist.</button>
+                <button class="btn-func" onclick="MathLib.gen('square')">Kare Dalga</button>
+                <button class="btn-func" onclick="MathLib.gen('sawtooth')">Testere Dişi</button>
+                <button class="btn-func" onclick="MathLib.gen('abs')">Mutlak Değer</button>
+            </div>
+
+            <div class="section-label">İstatistiksel Operasyonlar</div>
+            <div class="func-grid">
+                <button class="btn-func" onclick="MathLib.op('sort')">Küçükten Büyüğe</button>
+                <button class="btn-func" onclick="MathLib.op('reverse')">Tersine Çevir</button>
+                <button class="btn-func" onclick="MathLib.op('normalize')">Normalize Et</button>
+                <button class="btn-func" onclick="MathLib.op('smooth')">Yumuşat (Moving Avg)</button>
+            </div>
+        </div>
+
+        <div style="padding: 20px; border-top: 1px solid var(--border); font-size: 0.6rem; color: #444;">
+            MATRIX_STATUS: ACTIVE | RENDERING: WEBGL_2.0
+        </div>
+    </aside>
+
+    <main class="viewport">
+        <div id="canvas-3d"></div>
+
+        <div id="view-2d">
+            <canvas id="fullChart2D"></canvas>
+        </div>
+
+        <div class="minimap">
+            <canvas id="miniChart"></canvas>
+        </div>
+
+        <div class="overlay stats-card">
+            <h3 style="font-size: 0.7rem; color: var(--electric); margin-bottom: 12px;">SİSTEM ANALİZİ</h3>
+            <div class="metric"><span>Voxel Count:</span><b id="st-n">0</b></div>
+            <div class="metric"><span>Mean Density:</span><b id="st-avg">0.00</b></div>
+            <div class="metric"><span>Std. Deviation:</span><b id="st-std">0.00</b></div>
+            <div class="metric"><span>Max Amplitude:</span><b id="st-max" style="color:var(--neon)">0</b></div>
+            <div class="metric"><span>Variance:</span><b id="st-var">0.00</b></div>
+        </div>
+
+        <div class="overlay math-card">
+            <h3 style="font-size: 0.7rem; color: var(--lava); margin-bottom: 10px;">FONKSİYON TOPOLOJİSİ</h3>
+            <div id="math-desc" style="font-size: 0.65rem; line-height: 1.4; color: #8b949e;">
+                Lütfen bir matematiksel fonksiyon seçin veya veri girin.
+            </div>
+        </div>
+
+        <div class="floating-btns">
+            <button id="btn-mode" class="f-btn" onclick="Core.toggleViewMode()">MOD: 3D VOKSEL</button>
+            <button class="f-btn" onclick="Core.resetView()">BAKIŞI SIFIRLA (R)</button>
+            <button class="f-btn" onclick="Core.toggleAutoRotate()">OTO-DÖNÜŞ</button>
+            <button class="f-btn" onclick="Core.clearAll()">TEMİZLE</button>
+        </div>
+    </main>
+
+    <script>
+        /**
+         * WIKIPEDIA MATHEMATICAL LIBRARY
+         */
+        const MathLib = {
+            gen(type) {
+                let data = [];
+                const size = 30;
+                switch(type) {
+                    case 'sine': 
+                        for(let i=0; i<size; i++) data.push(Math.sin(i * 0.5) * 50 + 50);
+                        this.log("Sinüs Dalgası: f(x) = sin(x) periyodik dalgalanma."); break;
+                    case 'gaussian':
+                        for(let i=0; i<size; i++) {
+                            let x = (i - size/2) / 5;
+                            data.push(Math.exp(-x*x) * 100);
+                        }
+                        this.log("Normal Dağılım: Çan eğrisi topolojisi."); break;
+                    case 'log':
+                        for(let i=1; i<=size; i++) data.push(Math.log(i) * 30);
+                        this.log("Logaritmik Artış: f(x) = ln(x) tabanlı yavaş büyüme."); break;
+                    case 'sigmoid':
+                        for(let i=0; i<size; i++) {
+                            let x = (i - size/2);
+                            data.push((1 / (1 + Math.exp(-x))) * 100);
+                        }
+                        this.log("Sigmoid Fonksiyonu: Lojistik S-eğrisi."); break;
+                    case 'perlin':
+                        for(let i=0; i<size; i++) data.push(Math.abs(Math.sin(i) * Math.cos(i * 1.5)) * 80 + Math.random() * 20);
+                        this.log("Perlin Noise: Doğal görünümlü rastgele yüzey."); break;
+                    case 'fibonacci':
+                        let a=0, b=1;
+                        for(let i=0; i<size; i++) {
+                            data.push(Math.min(b, 200)); 
+                            [a, b] = [b, a + b];
+                        }
+                        this.log("Fibonacci Dizisi: Altın oran tabanlı büyüme."); break;
+                    case 'fractal':
+                        for(let i=0; i<size; i++) data.push((i % 3 === 0 ? 80 : 20) + (i % 5 === 0 ? 40 : 0));
+                        this.log("Fraktal Kaos: Tekrarlayan öz-benzerlik örüntüleri."); break;
+                    case 'poisson':
+                        const lambda = 10;
+                        for(let i=0; i<size; i++) {
+                            let fact = 1; for(let j=1; j<=i; j++) fact *= j;
+                            data.push((Math.pow(lambda, i) * Math.exp(-lambda) / fact) * 1000);
+                        }
+                        this.log("Poisson Dağılımı: Belirli aralıktaki olay olasılığı."); break;
+                    case 'tangent':
+                        for(let i=0; i<size; i++) data.push(Math.tan(i * 0.1) * 20 + 50);
+                        this.log("Tanjant: f(x) = tan(x) asimptotik dikey çizgiler."); break;
+                }
+                document.getElementById('rawInput').value = data.map(n => n.toFixed(1)).join(', ');
+                Core.execute();
+            },
+
+            op(type) {
+                let data = [...Core.currentData];
+                if(!data.length) return;
+                switch(type) {
+                    case 'sort': data.sort((a,b)=>a-b); break;
+                    case 'reverse': data.reverse(); break;
+                    case 'normalize': 
+                        const max = Math.max(...data);
+                        data = data.map(n => (n/max)*100); break;
+                    case 'smooth':
+                        data = data.map((n, i, arr) => {
+                            if(i===0 || i===arr.length-1) return n;
+                            return (arr[i-1] + n + arr[i+1]) / 3;
+                        }); break;
+                }
+                document.getElementById('rawInput').value = data.map(n => n.toFixed(1)).join(', ');
+                Core.execute();
+            },
+
+            log(txt) { document.getElementById('math-desc').innerHTML = txt; }
+        };
+
+        /**
+         * CORE VOXEL ENGINE
+         */
+        const Core = {
+            currentData: [], voxels: [],
+            scene: null, camera: null, renderer: null, controls: { rotate: false },
+            isDragging: false, mouse: { x:0, y:0 }, chart: null,
+            viewMode: '3D', chart2D: null,
+
+            init() {
+                const container = document.getElementById('canvas-3d');
+                this.scene = new THREE.Scene();
+                this.scene.background = new THREE.Color(0x020406);
+                this.scene.fog = new THREE.Fog(0x020406, 30, 150);
+                this.camera = new THREE.PerspectiveCamera(60, container.clientWidth/container.clientHeight, 0.1, 1000);
+                this.resetView();
+                this.renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: "high-performance" });
+                this.renderer.setSize(container.clientWidth, container.clientHeight);
+                this.renderer.setPixelRatio(window.devicePixelRatio);
+                container.appendChild(this.renderer.domElement);
+                this.scene.add(new THREE.AmbientLight(0xffffff, 0.3));
+                const p1 = new THREE.PointLight(0x00ff88, 1, 100); p1.position.set(20, 40, 20); this.scene.add(p1);
+                const p2 = new THREE.PointLight(0x00d1ff, 1, 100); p2.position.set(-20, 20, -20); this.scene.add(p2);
+                const grid = new THREE.GridHelper(100, 40, 0x161b22, 0x0d1117);
+                this.scene.add(grid);
+                this.setupInteractions();
+                this.execute();
+                this.loop();
+            },
+
+            setupInteractions() {
+                const view = document.getElementById('canvas-3d');
+                view.addEventListener('mousedown', (e) => { this.isDragging = true; this.mouse = { x: e.clientX, y: e.clientY }; });
+                window.addEventListener('mouseup', () => this.isDragging = false);
+                window.addEventListener('mousemove', (e) => {
+                    if(!this.isDragging) return;
+                    const dx = (e.clientX - this.mouse.x) * 0.005;
+                    const dy = (e.clientY - this.mouse.y) * 0.005;
+                    this.scene.rotation.y += dx;
+                    this.scene.rotation.x += dy;
+                    this.mouse = { x: e.clientX, y: e.clientY };
+                });
+                window.addEventListener('keydown', (e) => { if(e.key.toLowerCase()==='r') this.resetView(); });
+                window.addEventListener('resize', () => {
+                    this.camera.aspect = view.clientWidth/view.clientHeight;
+                    this.camera.updateProjectionMatrix();
+                    this.renderer.setSize(view.clientWidth, view.clientHeight);
+                });
+            },
+
+            execute() {
+                const raw = document.getElementById('rawInput').value;
+                this.currentData = raw.match(/-?\d+(\.\d+)?/g)?.map(Number) || [];
+                if(!this.currentData.length) return;
+
+                const stats = this.calculateStats(this.currentData);
+                this.updateUI(stats);
+                this.render3D(stats);
+                this.renderMiniMap();
+                if(this.viewMode === '2D') this.renderFull2D();
+            },
+
+            toggleViewMode() {
+                this.viewMode = this.viewMode === '3D' ? '2D' : '3D';
+                const panel2d = document.getElementById('view-2d');
+                const btn = document.getElementById('btn-mode');
+                
+                if(this.viewMode === '2D') {
+                    panel2d.style.display = 'block';
+                    btn.innerText = "MOD: 2D GRAFİK";
+                    btn.classList.add('active-mode');
+                    this.renderFull2D();
+                } else {
+                    panel2d.style.display = 'none';
+                    btn.innerText = "MOD: 3D VOKSEL";
+                    btn.classList.remove('active-mode');
+                }
+            },
+
+            renderFull2D() {
+                const ctx = document.getElementById('fullChart2D').getContext('2d');
+                if(this.chart2D) this.chart2D.destroy();
+                this.chart2D = new Chart(ctx, {
+                    type: 'bar',
+                    data: {
+                        labels: this.currentData.map((_, i) => `V-${i}`),
+                        datasets: [{
+                            label: 'Sinyal Analizi',
+                            data: this.currentData,
+                            backgroundColor: 'rgba(0, 255, 136, 0.2)',
+                            borderColor: '#00ff88',
+                            borderWidth: 2,
+                            borderRadius: 4
+                        }]
+                    },
+                    options: {
+                        responsive: true, maintainAspectRatio: false,
+                        scales: {
+                            y: { grid: { color: '#1d2129' }, ticks: { color: '#8b949e' } },
+                            x: { grid: { display: false }, ticks: { color: '#8b949e' } }
+                        },
+                        plugins: { legend: { labels: { color: '#00ff88', font: { family: 'Fira Code' } } } }
+                    }
+                });
+            },
+
+            calculateStats(d) {
+                const n = d.length;
+                const mean = d.reduce((a,b)=>a+b,0)/n;
+                const variance = d.reduce((a,b)=>a+Math.pow(b-mean,2),0)/n;
+                return { n, mean, variance, std: Math.sqrt(variance), max: Math.max(...d) };
+            },
+
+            updateUI(s) {
+                document.getElementById('st-n').innerText = s.n;
+                document.getElementById('st-avg').innerText = s.mean.toFixed(2);
+                document.getElementById('st-std').innerText = s.std.toFixed(3);
+                document.getElementById('st-max').innerText = s.max.toFixed(1);
+                document.getElementById('st-var').innerText = s.variance.toFixed(2);
+            },
+
+            render3D(stats) {
+                this.voxels.forEach(v => this.scene.remove(v));
+                this.voxels = [];
+                this.currentData.forEach((val, i) => {
+                    const h = (val / (stats.max || 1)) * 25 + 0.1;
+                    const geo = new THREE.BoxGeometry(1, h, 1);
+                    const color = new THREE.Color().setHSL(0.4 + (val/stats.max)*0.1, 1, 0.5);
+                    const mat = new THREE.MeshPhongMaterial({
+                        color: color, transparent: true, opacity: 0.7, shininess: 100,
+                        emissive: color, emissiveIntensity: 0.1
+                    });
+                    const mesh = new THREE.Mesh(geo, mat);
+                    mesh.position.set((i - this.currentData.length/2) * 1.8, h/2, 0);
+                    const edges = new THREE.EdgesGeometry(geo);
+                    const line = new THREE.LineSegments(edges, new THREE.LineBasicMaterial({ color: 0x00ff88, transparent: true, opacity: 0.4 }));
+                    mesh.add(line);
+                    this.scene.add(mesh);
+                    this.voxels.push(mesh);
+                });
+            },
+
+            renderMiniMap() {
+                const ctx = document.getElementById('miniChart').getContext('2d');
+                if(this.chart) this.chart.destroy();
+                this.chart = new Chart(ctx, {
+                    type: 'line',
+                    data: {
+                        labels: this.currentData.map((_,i)=>i),
+                        datasets: [{ data: this.currentData, borderColor: '#00ff88', borderWidth: 1, pointRadius: 0, fill: true, backgroundColor: 'rgba(0,255,136,0.1)' }]
+                    },
+                    options: { 
+                        responsive: true, maintainAspectRatio: false, 
+                        plugins: { legend: {display:false} },
+                        scales: { x:{display:false}, y:{display:false} }
+                    }
+                });
+            },
+
+            resetView() {
+                new TWEEN.Tween(this.scene.rotation).to({ x:0, y:0, z:0 }, 1000).easing(TWEEN.Easing.Quadratic.Out).start();
+                this.camera.position.set(30, 30, 50);
+                this.camera.lookAt(0, 0, 0);
+            },
+
+            toggleAutoRotate() { this.controls.rotate = !this.controls.rotate; },
+            clearAll() { document.getElementById('rawInput').value = ""; this.execute(); },
+
+            loop() {
+                requestAnimationFrame(() => this.loop());
+                TWEEN.update();
+                if(this.controls.rotate) this.scene.rotation.y += 0.01;
+                this.renderer.render(this.scene, this.camera);
+            }
+        };
+
+        window.onload = () => Core.init();
+    </script>
+</body>
+</html>
